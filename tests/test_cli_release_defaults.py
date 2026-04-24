@@ -5,6 +5,32 @@ from app import cli
 
 
 class TestCliReleaseDefaults(unittest.TestCase):
+    def test_build_run_config_defaults_depth_to_two(self):
+        run_config = cli.build_run_config(["https://example.com/list"])
+        self.assertEqual(2, run_config.depth)
+
+    def test_build_run_config_accepts_explicit_depth(self):
+        run_config = cli.build_run_config(
+            [
+                "https://example.com/list",
+                "--depth",
+                "3",
+            ]
+        )
+        self.assertEqual(3, run_config.depth)
+
+    def test_parse_args_rejects_depth_below_one(self):
+        with self.assertRaises(SystemExit) as context:
+            cli.parse_args(
+                [
+                    "https://example.com/list",
+                    "--depth",
+                    "0",
+                ]
+            )
+
+        self.assertEqual(2, context.exception.code)
+
     def test_build_run_config_requires_explicit_url_and_uses_safe_defaults(self):
         run_config = cli.build_run_config(
             [

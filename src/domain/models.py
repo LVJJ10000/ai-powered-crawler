@@ -8,6 +8,7 @@ class RunConfig:
     max_pages: int
     max_list_pages: int
     use_playwright: bool = False
+    depth: int = 2
 
 
 @dataclass
@@ -39,4 +40,3 @@ class SelectedLinksResult:
     selected_urls: list[str] = field(default_factory=list)
     selected_xpaths: list[str] = field(default_factory=list)
     evaluations: list[XPathCandidateEvaluation] = field(default_factory=list)
-

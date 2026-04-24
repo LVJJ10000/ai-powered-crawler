@@ -12,12 +12,20 @@ from crawler.fetcher import PageFetcher
 from domain.models import RunConfig
 
 
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return parsed
+
+
 def parse_args(argv: Sequence[str] | None = None):
     parser = argparse.ArgumentParser(description="AI-Powered-Crawler adaptive crawler")
     parser.add_argument("url", help="Starting URL to crawl")
     parser.add_argument("--output", "-o", default="output.json", help="Output JSON file path")
     parser.add_argument("--max-pages", type=int, default=config.MAX_PAGES, help="Max detail pages to crawl")
     parser.add_argument("--max-list-pages", type=int, default=10, help="Max list pages to paginate")
+    parser.add_argument("--depth", type=_positive_int, default=2, help="Traversal depth from the start page")
     parser.add_argument("--use-playwright", action="store_true", help="Force Playwright for fetching")
     return parser.parse_args(argv)
 
@@ -30,6 +38,7 @@ def build_run_config(argv: Sequence[str] | None = None) -> RunConfig:
         max_pages=args.max_pages,
         max_list_pages=args.max_list_pages,
         use_playwright=args.use_playwright,
+        depth=args.depth,
     )
 
 
