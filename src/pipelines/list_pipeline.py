@@ -1,7 +1,7 @@
 import logging
 from collections import OrderedDict
 
-from domain.models import RunConfig, XPathCandidate
+from domain.models import ListDiscoveryResult, RunConfig, XPathCandidate
 from models.schemas import CrawlConfig, PageData, PageType
 from pipelines.base_pipeline import BasePipeline
 from crawler.url_utils import get_domain
@@ -23,6 +23,41 @@ class ListPipeline(BasePipeline):
         self.extraction_service = extraction_service
         self.pagination_service = pagination_service
         self.link_xpath_service = link_xpath_service
+
+    async def discover_detail_urls(
+        self,
+        run_config: RunConfig,
+        start_url: str,
+        raw_html: str,
+        list_config: CrawlConfig,
+        link_candidates: list[XPathCandidate],
+    ) -> ListDiscoveryResult:
+        print(f"\n[Step 2] Paginating list pages (max {run_config.max_list_pages})...")
+        list_pages = await self.pagination_service.follow(
+            raw_html,
+            start_url,
+            list_config.pagination_xpath,
+            list_config.pagination_type,
+            run_config.max_list_pages,
+        )
+        print(f"  Total list pages: {len(list_pages)}")
+
+        print(f"\n[Step 3] Discovering detail URLs via AI XPath...")
+        selection = self.link_xpath_service.evaluate_candidates(
+            candidates=link_candidates,
+            list_pages=list_pages,
+            max_pages=run_config.max_pages,
+        )
+
+        if not selection.selected_urls:
+            print("  No detail URLs found. Nothing to crawl.")
+            return ListDiscoveryResult(detail_urls=[], selected_xpaths=[])
+
+        print(f"  Selected {len(selection.selected_urls)} URLs using: {', '.join(selection.selected_xpaths)}")
+        return ListDiscoveryResult(
+            detail_urls=selection.selected_urls,
+            selected_xpaths=selection.selected_xpaths,
+        )
 
     async def run(
         self,
