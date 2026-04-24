@@ -11,6 +11,7 @@ def export_json(
     crawl_config: CrawlConfig,
     source_url: str,
     output_path: str,
+    detail_urls: list[str] | None = None,
 ):
     """Export detail page data to JSON."""
     fields_def = []
@@ -30,6 +31,9 @@ def export_json(
         "fields_definition": fields_def,
         "pages": [p.model_dump() for p in data],
     }
+
+    if detail_urls is not None:
+        output["detail_urls"] = detail_urls
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)

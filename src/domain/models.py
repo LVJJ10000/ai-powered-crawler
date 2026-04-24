@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from models.schemas import CrawlConfig, PageData
+
 
 @dataclass
 class RunConfig:
@@ -40,3 +42,24 @@ class SelectedLinksResult:
     selected_urls: list[str] = field(default_factory=list)
     selected_xpaths: list[str] = field(default_factory=list)
     evaluations: list[XPathCandidateEvaluation] = field(default_factory=list)
+
+
+@dataclass
+class ListDiscoveryResult:
+    detail_urls: list[str] = field(default_factory=list)
+    selected_xpaths: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DetailLayerResult:
+    records: list[PageData] = field(default_factory=list)
+    next_detail_urls: list[str] = field(default_factory=list)
+    export_config: CrawlConfig | None = None
+    config_cache: dict[str, CrawlConfig] = field(default_factory=dict)
+
+
+@dataclass
+class TraversalResult:
+    records: list[PageData] = field(default_factory=list)
+    export_config: CrawlConfig | None = None
+    detail_urls: list[str] = field(default_factory=list)
