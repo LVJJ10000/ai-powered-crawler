@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-powered-crawler"
+version = "0.1.0"
+description = "Experimental AI-powered adaptive crawler"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "AI-Powered-Crawler contributors" }]
+dependencies = [
+    "openai>=1.0.0",
+    "httpx>=0.27.0",
+    "lxml>=5.0.0",
+    "playwright>=1.40.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+ai-powered-crawler = "app.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["config"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = [
+    "ai*",
+    "app*",
+    "crawler*",
+    "domain*",
+    "models*",
+    "pipelines*",
+    "preprocessing*",
+    "services*",
+    "storage*",
+]
