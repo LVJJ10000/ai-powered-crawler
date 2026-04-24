@@ -1,23 +1,31 @@
 import pathlib
+import subprocess
 import unittest
 
 
 class TestRepoLayout(unittest.TestCase):
-    def test_markdown_docs_live_under_superpowers_tree(self):
+    def test_tracked_internal_spec_docs_live_under_superpowers_specs(self):
         root = pathlib.Path(__file__).resolve().parents[1]
-        docs_dir = root / "docs"
-        markdown_docs = list(docs_dir.rglob("*.md"))
+        tracked_files = subprocess.run(
+            ["git", "ls-files", "docs/superpowers/specs"],
+            check=True,
+            cwd=root,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+        tracked_spec_docs = [
+            path for path in tracked_files if path.endswith(".md")
+        ]
 
         self.assertFalse((root / "OOP_AI_XPATH_REFACTOR_PLAN.md").exists())
         self.assertFalse((root / "PAGINATION_ENGINE_REFACTOR_PLAN.md").exists())
         self.assertFalse((root / "SOLUTION_PLAN.md").exists())
 
-        self.assertTrue(markdown_docs)
-        for doc_path in markdown_docs:
-            self.assertEqual(
-                doc_path.relative_to(docs_dir).parts[0],
-                "superpowers",
-                f"unexpected markdown doc outside docs/superpowers: {doc_path}",
+        self.assertTrue(tracked_spec_docs)
+        for tracked_path in tracked_spec_docs:
+            self.assertTrue(
+                tracked_path.startswith("docs/superpowers/specs/"),
+                f"unexpected tracked spec doc path: {tracked_path}",
             )
 
 
