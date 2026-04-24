@@ -91,13 +91,16 @@ class DetailPipeline(BasePipeline):
             all_records.extend(records)
             export_config = detail_config if export_config is None else export_config
 
-            for record, (url, page_html) in zip(records, batch, strict=False):
+            for record in records:
+                page_html = batch_map.get(record.url)
+                if page_html is None:
+                    continue
                 next_urls.extend(
                     self.extraction_service.collect_sub_detail_urls(
                         record.data,
                         detail_config,
                         page_html,
-                        url,
+                        record.url,
                         remaining_pages,
                     )
                 )
