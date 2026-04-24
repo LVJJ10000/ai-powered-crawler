@@ -33,7 +33,8 @@ class TestRepoLayout(unittest.TestCase):
             "SOLUTION_PLAN.md",
         }
 
-        self.assertTrue(legacy_plan_docs.isdisjoint(tracked_files))
+        for legacy_name in legacy_plan_docs:
+            self.assertFalse((root / legacy_name).exists())
         self.assertSetEqual(tracked_root_markdown, allowed_root_markdown)
         self.assertTrue(tracked_spec_docs)
 
