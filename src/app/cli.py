@@ -52,8 +52,8 @@ def build_client_kwargs() -> dict[str, str]:
     return kwargs
 
 
-async def run() -> None:
-    run_config = build_run_config()
+async def run(argv: Sequence[str] | None = None) -> None:
+    run_config = build_run_config(argv)
 
     try:
         client_kwargs = build_client_kwargs()
