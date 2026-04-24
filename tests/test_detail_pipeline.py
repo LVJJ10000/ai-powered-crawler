@@ -40,6 +40,40 @@ class _FakeAnalyzerService:
 
 
 class TestDetailPipeline(unittest.IsolatedAsyncioTestCase):
+    async def test_process_depth_layer_reuses_template_fetch_for_uncached_domain(self):
+        detail_config = CrawlConfig(
+            page_type=PageType.DETAIL,
+            fields=[
+                FieldXPath(
+                    name="title",
+                    description="title",
+                    xpath="//h1",
+                    confidence=0.9,
+                    extract=ExtractType.TEXT,
+                )
+            ],
+            pagination_xpath=None,
+        )
+        fetcher = _FakeFetcher()
+        pipeline = DetailPipeline(
+            fetcher=fetcher,
+            extraction_service=_FakeExtractionService(),
+            analyzer_service=_FakeAnalyzerService(detail_config),
+        )
+
+        await pipeline.process_depth_layer(
+            urls=[
+                "https://example.com/detail/1",
+                "https://example.com/detail/2",
+            ],
+            remaining_pages=2,
+            config_cache={},
+            prefetched_pages={},
+        )
+
+        self.assertEqual(["https://example.com/detail/1"], fetcher.fetch_calls)
+        self.assertEqual([["https://example.com/detail/2"]], fetcher.fetch_many_calls)
+
     async def test_process_depth_layer_uses_prefetched_pages_and_discovers_next_urls(self):
         detail_config = CrawlConfig(
             page_type=PageType.DETAIL,

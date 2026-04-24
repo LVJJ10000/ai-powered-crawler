@@ -62,22 +62,24 @@ class DetailPipeline(BasePipeline):
         export_config = None
 
         for domain, domain_urls in self._bucket_urls_by_domain(budgeted_urls).items():
+            domain_prefetched_pages = {
+                url: html for url, html in prefetched_pages.items() if url in domain_urls
+            }
             detail_config = config_cache.get(domain)
             if detail_config is None:
                 template_url = domain_urls[0]
-                template_html = prefetched_pages.get(template_url) or await self.fetcher.fetch(template_url)
+                template_html = domain_prefetched_pages.get(template_url) or await self.fetcher.fetch(template_url)
+                domain_prefetched_pages[template_url] = template_html
                 analysis = self.analyzer_service.analyze(template_html, label=f"detail page ({domain})")
                 detail_config = analysis.crawl_config
                 if detail_config.page_type != PageType.DETAIL or not detail_config.fields:
                     continue
                 config_cache[domain] = detail_config
 
-            missing_urls = [url for url in domain_urls if url not in prefetched_pages]
+            missing_urls = [url for url in domain_urls if url not in domain_prefetched_pages]
             fetched_batch = await self.fetcher.fetch_many(missing_urls)
             batch_map = {url: html for url, html in fetched_batch}
-            for url, html in prefetched_pages.items():
-                if url in domain_urls:
-                    batch_map[url] = html
+            batch_map.update(domain_prefetched_pages)
 
             batch = [(url, batch_map[url]) for url in domain_urls if url in batch_map]
             records, detail_config = self.extraction_service.extract_pages(
