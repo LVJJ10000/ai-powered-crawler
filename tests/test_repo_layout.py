@@ -27,11 +27,13 @@ class TestRepoLayout(unittest.TestCase):
             "CODE_OF_CONDUCT.md",
             "SECURITY.md",
         }
+        legacy_plan_docs = {
+            "OOP_AI_XPATH_REFACTOR_PLAN.md",
+            "PAGINATION_ENGINE_REFACTOR_PLAN.md",
+            "SOLUTION_PLAN.md",
+        }
 
-        self.assertFalse((root / "OOP_AI_XPATH_REFACTOR_PLAN.md").exists())
-        self.assertFalse((root / "PAGINATION_ENGINE_REFACTOR_PLAN.md").exists())
-        self.assertFalse((root / "SOLUTION_PLAN.md").exists())
-
+        self.assertTrue(legacy_plan_docs.isdisjoint(tracked_files))
         self.assertSetEqual(tracked_root_markdown, allowed_root_markdown)
         self.assertTrue(tracked_spec_docs)
 
