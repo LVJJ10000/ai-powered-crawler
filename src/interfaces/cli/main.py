@@ -4,6 +4,7 @@ import sys
 from collections.abc import Sequence
 
 import config
+from application.use_cases.crawl_website import InvalidStartPageError
 from domain.crawl_entities import CrawlRequest
 from interfaces.bootstrap.container import build_container
 
@@ -54,6 +55,14 @@ async def run(argv: Sequence[str] | None = None) -> None:
 
     try:
         result = await container.crawl_website.execute(request)
+    except InvalidStartPageError as exc:
+        if exc.reason == "missing_link_candidates":
+            print("\nNo list-link XPath candidates found. Exiting.")
+            sys.exit(1)
+        if exc.reason == "missing_detail_fields":
+            print("\nNo detail fields found. Exiting.")
+            sys.exit(1)
+        raise
     except RuntimeError as exc:
         if str(exc) != "OPENAI_API_KEY is not set":
             raise

@@ -2,9 +2,24 @@ import inspect
 
 from application.dto.start_page_analysis import StartPageAnalysis
 from domain.analysis_entities import PageType
+from domain.errors import AnalysisError
 
 
 START_PAGE_ANALYZED = "start_page_analyzed"
+
+
+class InvalidStartPageError(AnalysisError):
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)
+
+    @classmethod
+    def missing_link_candidates(cls):
+        return cls("missing_link_candidates")
+
+    @classmethod
+    def missing_detail_fields(cls):
+        return cls("missing_detail_fields")
 
 
 class CrawlWebsite:
@@ -18,6 +33,7 @@ class CrawlWebsite:
     async def execute(self, request):
         page = await self.page_source.fetch(request.start_url)
         analysis = await self._analyze_start_page(page)
+        self._validate_start_page_analysis(analysis)
         self._publish_start_page_analyzed(analysis)
         if analysis.page_type == PageType.LIST:
             return await self._route_listing(request, page, analysis)
@@ -53,6 +69,13 @@ class CrawlWebsite:
             crawl_plan=crawl_plan,
             link_candidates=list(link_candidates),
         )
+
+    @staticmethod
+    def _validate_start_page_analysis(analysis):
+        if analysis.page_type == PageType.LIST and not analysis.link_candidates:
+            raise InvalidStartPageError.missing_link_candidates()
+        if analysis.page_type == PageType.DETAIL and not analysis.crawl_plan.fields:
+            raise InvalidStartPageError.missing_detail_fields()
 
     async def _route_listing(self, request, page, analysis):
         if hasattr(self.listing_crawler, "crawl"):
