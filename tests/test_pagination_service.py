@@ -150,6 +150,87 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
         self.assertIs(replacement_engine, service.engine)
         self.assertIs(replacement_engine, service._coordinator.engine)
 
+    async def test_compatibility_service_fetcher_then_engine_binds_replacement_engine(self):
+        original_fetcher = _FakeFetcher(use_playwright=False)
+        replacement_fetcher = _FakeFetcher(use_playwright=False)
+        service = PaginationService(
+            fetcher=original_fetcher,
+            engine=_FakeEngine(
+                PaginationResult(
+                    pages=[("https://example.com/list?page=1", "<html>1</html>")],
+                    stop_reason=StopReason.NO_PROGRESS_LIMIT,
+                    traces=[],
+                )
+            ),
+            playwright_engine=_FakeEngine(
+                PaginationResult(
+                    pages=[("https://example.com/list?page=1", "<html>1</html>")],
+                    stop_reason=StopReason.NO_PROGRESS_LIMIT,
+                    traces=[],
+                )
+            ),
+        )
+        service.fetcher = replacement_fetcher
+        replacement_engine = _FakeEngine(
+            PaginationResult(
+                pages=[
+                    ("https://example.com/list?page=1", "<html>1</html>"),
+                    ("https://example.com/list?page=2", "<html>2</html>"),
+                ],
+                stop_reason=StopReason.TARGET_REACHED,
+                traces=[],
+            )
+        )
+        replacement_engine.fetcher = None
+
+        service.engine = replacement_engine
+
+        self.assertIs(replacement_engine, service.engine)
+        self.assertIs(replacement_engine, service._coordinator.engine)
+        self.assertIs(replacement_fetcher, replacement_engine.fetcher)
+
+    async def test_compatibility_service_fetcher_then_playwright_engine_binds_session_factory(self):
+        original_fetcher = _FakeFetcher(use_playwright=True)
+        replacement_fetcher = _FakeFetcher(use_playwright=True)
+        service = PaginationService(
+            fetcher=original_fetcher,
+            engine=_FakeEngine(
+                PaginationResult(
+                    pages=[("https://example.com/list?page=1", "<html>1</html>")],
+                    stop_reason=StopReason.NO_PROGRESS_LIMIT,
+                    traces=[],
+                )
+            ),
+            playwright_engine=_FakeEngine(
+                PaginationResult(
+                    pages=[("https://example.com/list?page=1", "<html>1</html>")],
+                    stop_reason=StopReason.NO_PROGRESS_LIMIT,
+                    traces=[],
+                )
+            ),
+        )
+        service.fetcher = replacement_fetcher
+        replacement_playwright_engine = _FakeEngine(
+            PaginationResult(
+                pages=[
+                    ("https://example.com/list?page=1", "<html>1</html>"),
+                    ("https://example.com/list?page=2", "<html>2</html>"),
+                ],
+                stop_reason=StopReason.TARGET_REACHED,
+                traces=[],
+            )
+        )
+        replacement_playwright_engine.session_factory = None
+
+        service.playwright_engine = replacement_playwright_engine
+
+        self.assertIs(replacement_playwright_engine, service.playwright_engine)
+        self.assertIs(replacement_playwright_engine, service._coordinator.playwright_engine)
+        self.assertIs(
+            replacement_fetcher,
+            replacement_playwright_engine.session_factory.__self__,
+        )
+
     async def test_compatibility_service_replacement_fetcher_updates_routing_and_collaborators(self):
         url_result = PaginationResult(
             pages=[("https://example.com/list?page=1", "<html>1</html>")],
