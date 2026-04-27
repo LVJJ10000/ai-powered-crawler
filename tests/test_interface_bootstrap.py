@@ -4,7 +4,7 @@ from unittest.mock import patch
 from app import cli
 from application.dto.crawl_outcomes import CrawlOutcome
 from domain.analysis_entities import PageType
-from domain.errors import InvalidStartPageError, MissingApiKeyError
+from domain.errors import MissingApiKeyError, MissingDetailFieldsError, MissingLinkCandidatesError
 from domain.extraction_entities import CrawlPlan
 from models.schemas import PageData
 
@@ -40,7 +40,7 @@ class TestInterfaceBootstrap(unittest.IsolatedAsyncioTestCase):
 
     async def test_cli_run_translates_invalid_list_start_page_to_terminal_exit(self):
         async def fake_execute(self, request):
-            raise InvalidStartPageError.missing_link_candidates()
+            raise MissingLinkCandidatesError()
 
         with patch("interfaces.bootstrap.container._BootstrappedCrawlWebsite.execute", new=fake_execute), patch(
             "builtins.print"
@@ -53,7 +53,7 @@ class TestInterfaceBootstrap(unittest.IsolatedAsyncioTestCase):
 
     async def test_cli_run_translates_invalid_detail_start_page_to_terminal_exit(self):
         async def fake_execute(self, request):
-            raise InvalidStartPageError.missing_detail_fields()
+            raise MissingDetailFieldsError()
 
         with patch("interfaces.bootstrap.container._BootstrappedCrawlWebsite.execute", new=fake_execute), patch(
             "builtins.print"

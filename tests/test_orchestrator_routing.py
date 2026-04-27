@@ -5,7 +5,7 @@ from application.dto.start_page_analysis import StartPageAnalysis
 from application.use_cases.crawl_website import CrawlWebsite
 from domain.analysis_entities import ExtractType, PageType
 from domain.crawl_entities import CrawlRequest, LinkCandidate
-from domain.errors import InvalidStartPageError
+from domain.errors import MissingDetailFieldsError, MissingLinkCandidatesError
 from domain.extraction_entities import CrawlPlan, FieldDefinition
 
 
@@ -135,7 +135,7 @@ class TestOrchestratorRouting(unittest.IsolatedAsyncioTestCase):
         )
         orchestrator = CrawlOrchestrator(crawl_website)
 
-        with self.assertRaises(InvalidStartPageError) as context:
+        with self.assertRaises(MissingLinkCandidatesError):
             await orchestrator.run(
                 CrawlRequest(
                     start_url="https://example.com/list",
@@ -145,7 +145,6 @@ class TestOrchestratorRouting(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-        self.assertEqual("missing_link_candidates", context.exception.reason)
         self.assertEqual([], listing.calls)
         self.assertEqual([], detail.calls)
         self.assertEqual([], reporter.events)
@@ -167,7 +166,7 @@ class TestOrchestratorRouting(unittest.IsolatedAsyncioTestCase):
         )
         orchestrator = CrawlOrchestrator(crawl_website)
 
-        with self.assertRaises(InvalidStartPageError) as context:
+        with self.assertRaises(MissingDetailFieldsError):
             await orchestrator.run(
                 CrawlRequest(
                     start_url="https://example.com/detail/1",
@@ -177,7 +176,6 @@ class TestOrchestratorRouting(unittest.IsolatedAsyncioTestCase):
                 )
             )
 
-        self.assertEqual("missing_detail_fields", context.exception.reason)
         self.assertEqual([], listing.calls)
         self.assertEqual([], detail.calls)
         self.assertEqual([], reporter.events)

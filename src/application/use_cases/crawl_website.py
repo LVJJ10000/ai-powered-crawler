@@ -2,7 +2,7 @@ import inspect
 
 from application.dto.start_page_analysis import StartPageAnalysis
 from domain.analysis_entities import PageType
-from domain.errors import InvalidStartPageError
+from domain.errors import MissingDetailFieldsError, MissingLinkCandidatesError
 
 
 START_PAGE_ANALYZED = "start_page_analyzed"
@@ -59,9 +59,9 @@ class CrawlWebsite:
     @staticmethod
     def _validate_start_page_analysis(analysis):
         if analysis.page_type == PageType.LIST and not analysis.link_candidates:
-            raise InvalidStartPageError.missing_link_candidates()
+            raise MissingLinkCandidatesError()
         if analysis.page_type == PageType.DETAIL and not analysis.crawl_plan.fields:
-            raise InvalidStartPageError.missing_detail_fields()
+            raise MissingDetailFieldsError()
 
     async def _route_listing(self, request, page, analysis):
         if hasattr(self.listing_crawler, "crawl"):

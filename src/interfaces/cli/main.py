@@ -5,7 +5,7 @@ from collections.abc import Sequence
 
 import config
 from domain.crawl_entities import CrawlRequest
-from domain.errors import InvalidStartPageError, MissingApiKeyError
+from domain.errors import MissingApiKeyError, MissingDetailFieldsError, MissingLinkCandidatesError
 from interfaces.bootstrap.container import build_client_kwargs as build_shared_client_kwargs
 from interfaces.bootstrap.container import build_container
 
@@ -50,14 +50,12 @@ async def run(argv: Sequence[str] | None = None) -> None:
 
     try:
         result = await container.crawl_website.execute(request)
-    except InvalidStartPageError as exc:
-        if exc.reason == "missing_link_candidates":
-            print("\nNo list-link XPath candidates found. Exiting.")
-            sys.exit(1)
-        if exc.reason == "missing_detail_fields":
-            print("\nNo detail fields found. Exiting.")
-            sys.exit(1)
-        raise
+    except MissingLinkCandidatesError:
+        print("\nNo list-link XPath candidates found. Exiting.")
+        sys.exit(1)
+    except MissingDetailFieldsError:
+        print("\nNo detail fields found. Exiting.")
+        sys.exit(1)
     except MissingApiKeyError as exc:
         print(f"Error: {exc}")
         sys.exit(1)

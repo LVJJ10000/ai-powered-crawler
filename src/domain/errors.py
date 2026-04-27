@@ -7,17 +7,17 @@ class AnalysisError(DomainError):
 
 
 class InvalidStartPageError(AnalysisError):
-    def __init__(self, reason: str):
-        self.reason = reason
-        super().__init__(reason)
+    """Base error for invalid start-page analysis outcomes."""
 
-    @classmethod
-    def missing_link_candidates(cls):
-        return cls("missing_link_candidates")
 
-    @classmethod
-    def missing_detail_fields(cls):
-        return cls("missing_detail_fields")
+class MissingLinkCandidatesError(InvalidStartPageError):
+    def __init__(self):
+        super().__init__("missing_link_candidates")
+
+
+class MissingDetailFieldsError(InvalidStartPageError):
+    def __init__(self):
+        super().__init__("missing_detail_fields")
 
 
 class ExtractionError(DomainError):
