@@ -12,6 +12,9 @@ class _FakeFetcher:
     def __init__(self, use_playwright):
         self.use_playwright = use_playwright
 
+    async def open_pagination_session(self, url):
+        return url
+
 
 class _FakeEngine:
     def __init__(self, result):
@@ -146,6 +149,52 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, len(replacement_engine.calls))
         self.assertIs(replacement_engine, service.engine)
         self.assertIs(replacement_engine, service._coordinator.engine)
+
+    async def test_compatibility_service_replacement_fetcher_updates_routing_and_collaborators(self):
+        url_result = PaginationResult(
+            pages=[("https://example.com/list?page=1", "<html>1</html>")],
+            stop_reason=StopReason.NO_PROGRESS_LIMIT,
+            traces=[],
+        )
+        playwright_result = PaginationResult(
+            pages=[
+                ("https://example.com/list?page=1", "<html>1</html>"),
+                ("https://example.com/list?page=2", "<html>2</html>"),
+            ],
+            stop_reason=StopReason.TARGET_REACHED,
+            traces=[],
+        )
+        original_fetcher = _FakeFetcher(use_playwright=False)
+        service = PaginationService(
+            fetcher=original_fetcher,
+            engine=_FakeEngine(url_result),
+            playwright_engine=_FakeEngine(playwright_result),
+        )
+        service.engine.fetcher = original_fetcher
+        service.playwright_engine.session_factory = original_fetcher.open_pagination_session
+        replacement_fetcher = _FakeFetcher(use_playwright=True)
+
+        service.fetcher = replacement_fetcher
+
+        with mock.patch("builtins.print"), mock.patch(
+            "services.pagination_service.asyncio.sleep",
+            new=mock.AsyncMock(),
+        ):
+            pages = await service.follow(
+                start_html="<html>page one</html>",
+                start_url="https://example.com/list?page=1",
+                pagination_xpath="//a[@rel='next']",
+                pagination_type=None,
+                max_list_pages=2,
+            )
+
+        self.assertEqual(playwright_result.pages, pages)
+        self.assertEqual(0, len(service.engine.calls))
+        self.assertEqual(1, len(service.playwright_engine.calls))
+        self.assertIs(replacement_fetcher, service.fetcher)
+        self.assertIs(replacement_fetcher, service._coordinator.fetcher)
+        self.assertIs(replacement_fetcher, service.engine.fetcher)
+        self.assertIs(replacement_fetcher, service.playwright_engine.session_factory.__self__)
 
     async def test_follow_uses_playwright_engine_when_fetcher_uses_playwright(self):
         result = PaginationResult(

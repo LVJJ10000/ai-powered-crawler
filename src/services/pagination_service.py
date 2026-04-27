@@ -54,6 +54,16 @@ class PaginationService:
     @fetcher.setter
     def fetcher(self, value):
         self._coordinator.fetcher = value
+        if hasattr(self._coordinator.engine, "fetcher"):
+            try:
+                self._coordinator.engine.fetcher = value
+            except AttributeError:
+                pass
+        if hasattr(self._coordinator.playwright_engine, "session_factory"):
+            try:
+                self._coordinator.playwright_engine.session_factory = value.open_pagination_session
+            except AttributeError:
+                pass
 
     @property
     def engine(self):
