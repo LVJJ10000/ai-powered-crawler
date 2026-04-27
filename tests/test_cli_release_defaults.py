@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from app import cli
+from interfaces.cli import main as interfaces_cli_main
 
 
 class TestCliReleaseDefaults(unittest.TestCase):
@@ -61,12 +62,18 @@ class TestCliReleaseDefaults(unittest.TestCase):
         self.assertTrue(run_config.use_playwright)
 
     def test_build_client_kwargs_omits_base_url_when_unset(self):
-        with patch.object(cli.config, "API_KEY", "test-key"), patch.object(cli.config, "BASE_URL", None):
+        with patch.object(interfaces_cli_main.config, "API_KEY", "test-key"), patch.object(
+            interfaces_cli_main.config,
+            "BASE_URL",
+            None,
+        ):
             self.assertEqual({"api_key": "test-key"}, cli.build_client_kwargs())
 
     def test_build_client_kwargs_includes_custom_base_url_when_set(self):
-        with patch.object(cli.config, "API_KEY", "test-key"), patch.object(
-            cli.config, "BASE_URL", "https://example.test/v1"
+        with patch.object(interfaces_cli_main.config, "API_KEY", "test-key"), patch.object(
+            interfaces_cli_main.config,
+            "BASE_URL",
+            "https://example.test/v1",
         ):
             self.assertEqual(
                 {"api_key": "test-key", "base_url": "https://example.test/v1"},
@@ -74,7 +81,10 @@ class TestCliReleaseDefaults(unittest.TestCase):
             )
 
     def test_main_help_does_not_require_api_key(self):
-        with patch.object(cli.config, "API_KEY", None), patch("sys.argv", ["ai-powered-crawler", "-h"]):
+        with patch.object(interfaces_cli_main.config, "API_KEY", None), patch(
+            "sys.argv",
+            ["ai-powered-crawler", "-h"],
+        ):
             with self.assertRaises(SystemExit) as context:
                 cli.main()
 
