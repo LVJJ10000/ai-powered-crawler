@@ -8,14 +8,14 @@ from domain.pagination_models import (
     PaginationRoundTrace,
     StopReason,
 )
-from services.pagination_strategies import (
+from infrastructure.pagination.progress_detector import ProgressDetector
+from infrastructure.pagination.strategies import (
     ClickNextStrategy,
     InfiniteScrollStrategy,
     LinkNextStrategy,
     LoadMoreStrategy,
     PaginationContext,
 )
-from services.progress_detector import ProgressDetector
 
 logger = logging.getLogger(__name__)
 
@@ -149,4 +149,3 @@ class PaginationEngine:
         if len(state.pages) == 1 and state.no_progress_rounds > 0:
             stop_reason = StopReason.NO_STRATEGY_ADVANCED
         return PaginationResult(state.pages, stop_reason, state.traces)
-

@@ -1,8 +1,8 @@
 import unittest
 
 from domain.pagination_models import PaginationConfig, StopReason
+from infrastructure.pagination.progress_detector import ProgressDetector
 from services.playwright_pagination_engine import PlaywrightPaginationEngine
-from services.progress_detector import ProgressDetector
 
 
 class _FakeSession:

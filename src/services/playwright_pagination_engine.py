@@ -1,8 +1,9 @@
 from domain.pagination_models import PaginationConfig, PaginationResult, PaginationRoundTrace, StopReason
+from infrastructure.pagination.progress_detector import ProgressDetector
 
 
 class PlaywrightPaginationEngine:
-    def __init__(self, session_factory, progress_detector):
+    def __init__(self, session_factory, progress_detector: ProgressDetector):
         self.session_factory = session_factory
         self.progress_detector = progress_detector
 

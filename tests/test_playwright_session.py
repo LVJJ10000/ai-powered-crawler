@@ -1,7 +1,9 @@
 import unittest
 
 from crawler.fetcher import PageFetcher
-from crawler.playwright_session import PlaywrightPaginationSession
+from crawler.playwright_session import PlaywrightPaginationSession as CompatibilityPlaywrightPaginationSession
+from infrastructure.fetching.page_sources import PageFetcher as InfrastructurePageFetcher
+from infrastructure.fetching.playwright_sessions import PlaywrightPaginationSession
 
 
 class _FakeLocator:
@@ -74,6 +76,10 @@ class _FakeBrowser:
 
 
 class TestPlaywrightPaginationSession(unittest.IsolatedAsyncioTestCase):
+    async def test_compatibility_imports_expose_infrastructure_fetching_types(self):
+        self.assertIs(PageFetcher, InfrastructurePageFetcher)
+        self.assertIs(CompatibilityPlaywrightPaginationSession, PlaywrightPaginationSession)
+
     async def test_click_if_possible_uses_xpath_locator_and_waits_for_settle(self):
         page = _FakePage()
         session = PlaywrightPaginationSession(page)

@@ -1,9 +1,13 @@
 import unittest
 
-from services.progress_detector import ProgressDetector
+from infrastructure.pagination.progress_detector import ProgressDetector
+from services.progress_detector import ProgressDetector as CompatibilityProgressDetector
 
 
 class TestProgressDetector(unittest.TestCase):
+    def test_compatibility_import_exposes_infrastructure_detector(self):
+        self.assertIs(CompatibilityProgressDetector, ProgressDetector)
+
     def test_has_progress_when_same_text_but_link_targets_change(self):
         detector = ProgressDetector()
         previous = detector.capture_snapshot(
