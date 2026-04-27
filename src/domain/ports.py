@@ -1,9 +1,8 @@
 from typing import Protocol
 
 from domain.analysis_entities import PaginationType
-from domain.crawl_entities import CrawlRequest, LinkCandidate, LinkSelection
+from domain.crawl_entities import CrawlRequest, LinkCandidate, LinkSelection, PatternModel
 from domain.extraction_entities import CrawlPlan, ExtractionRecord
-from domain.models import PatternModel
 
 
 class IPageAnalyzer(Protocol):

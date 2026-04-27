@@ -2,9 +2,21 @@ import unittest
 from dataclasses import is_dataclass
 
 from domain.analysis_entities import ExtractType, PageType
-from domain.crawl_entities import CrawlRequest, LinkCandidate, LinkSelection
+from domain.crawl_entities import (
+    CrawlRequest,
+    LinkCandidate,
+    LinkCandidateEvaluation,
+    LinkSelection,
+    PatternModel,
+)
 from domain.extraction_entities import CrawlPlan, ExtractionRecord, FieldDefinition
-from domain.models import RunConfig, SelectedLinksResult, XPathCandidate
+from domain.models import (
+    PatternModel as LegacyPatternModel,
+    RunConfig,
+    SelectedLinksResult,
+    XPathCandidate,
+    XPathCandidateEvaluation,
+)
 from models.schemas import CrawlConfig, FieldXPath, PageData
 
 
@@ -12,6 +24,8 @@ class TestDomainContracts(unittest.TestCase):
     def test_legacy_runtime_models_alias_new_domain_entities(self):
         self.assertIs(RunConfig, CrawlRequest)
         self.assertIs(XPathCandidate, LinkCandidate)
+        self.assertIs(XPathCandidateEvaluation, LinkCandidateEvaluation)
+        self.assertIs(LegacyPatternModel, PatternModel)
         self.assertIs(SelectedLinksResult, LinkSelection)
         self.assertIs(CrawlConfig, CrawlPlan)
         self.assertIs(FieldXPath, FieldDefinition)
@@ -60,6 +74,20 @@ class TestDomainContracts(unittest.TestCase):
         record = PageData(url="https://example.com/detail/1", data={"title": "Example"})
 
         self.assertFalse(hasattr(record, "model_dump"))
+
+    def test_link_selection_uses_explicit_evaluation_entities(self):
+        selection = LinkSelection(
+            evaluations=[
+                LinkCandidateEvaluation(
+                    candidate=LinkCandidate(xpath="//main//a/@href"),
+                    urls=["https://example.com/detail/1"],
+                    score=0.8,
+                )
+            ]
+        )
+
+        self.assertEqual("//main//a/@href", selection.evaluations[0].candidate.xpath)
+        self.assertEqual(0.8, selection.evaluations[0].score)
 
 
 if __name__ == "__main__":
