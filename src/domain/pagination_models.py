@@ -37,6 +37,7 @@ class ProgressSnapshot:
     url: str
     html_fingerprint: str
     anchor_count: int
+    href_fingerprint: str
 
 
 @dataclass
@@ -64,4 +65,3 @@ class PaginationResult:
     pages: list[tuple[str, str]]
     stop_reason: StopReason
     traces: list[PaginationRoundTrace]
-
