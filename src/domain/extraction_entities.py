@@ -1,15 +1,10 @@
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 
 from domain.analysis_entities import ExtractType, PageType, PaginationType
 
 
-class _CompatDataclassMixin:
-    def model_dump(self) -> dict:
-        return asdict(self)
-
-
 @dataclass
-class FieldDefinition(_CompatDataclassMixin):
+class FieldDefinition:
     name: str
     description: str
     xpath: str
@@ -21,7 +16,7 @@ class FieldDefinition(_CompatDataclassMixin):
 
 
 @dataclass
-class CrawlPlan(_CompatDataclassMixin):
+class CrawlPlan:
     page_type: PageType
     fields: list[FieldDefinition] = field(default_factory=list)
     container_xpath: str | None = None
@@ -30,6 +25,6 @@ class CrawlPlan(_CompatDataclassMixin):
 
 
 @dataclass
-class ExtractionRecord(_CompatDataclassMixin):
+class ExtractionRecord:
     url: str
     data: dict[str, str | None]

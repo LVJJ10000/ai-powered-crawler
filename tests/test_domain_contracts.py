@@ -44,6 +44,23 @@ class TestDomainContracts(unittest.TestCase):
         self.assertEqual(PageType.DETAIL, plan.page_type)
         self.assertEqual("https://example.com/detail/1", request.start_url)
 
+    def test_crawl_request_aliases_remain_mutable_like_legacy_models(self):
+        request = CrawlRequest(
+            start_url="https://example.com/detail/1",
+            output_path="out.json",
+            max_pages=5,
+            max_list_pages=2,
+        )
+
+        request.depth = 3
+
+        self.assertEqual(3, request.depth)
+
+    def test_extraction_aliases_do_not_add_extra_runtime_methods(self):
+        record = PageData(url="https://example.com/detail/1", data={"title": "Example"})
+
+        self.assertFalse(hasattr(record, "model_dump"))
+
 
 if __name__ == "__main__":
     unittest.main()

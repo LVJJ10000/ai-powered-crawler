@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 
-@dataclass(frozen=True)
+@dataclass
 class CrawlRequest:
     start_url: str
     output_path: str
@@ -11,7 +11,7 @@ class CrawlRequest:
     depth: int = 2
 
 
-@dataclass(frozen=True)
+@dataclass
 class LinkCandidate:
     xpath: str
     confidence: float = 0.5
