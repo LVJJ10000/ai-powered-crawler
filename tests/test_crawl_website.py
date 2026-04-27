@@ -35,6 +35,25 @@ class _LegacyAnalyzer:
         return self.analysis
 
 
+class _LegacyAnalyzerWithoutLabel:
+    def __init__(self, analysis):
+        self.analysis = analysis
+        self.calls = []
+
+    def analyze(self, raw_html):
+        self.calls.append(raw_html)
+        return self.analysis
+
+
+class _LegacyAnalyzerThatRaisesTypeError:
+    def __init__(self):
+        self.calls = []
+
+    def analyze(self, raw_html, label="page"):
+        self.calls.append((raw_html, label))
+        raise TypeError("analyzer broke")
+
+
 class _FutureListingCrawler:
     def __init__(self):
         self.called = False
@@ -202,6 +221,37 @@ class TestCrawlWebsite(unittest.IsolatedAsyncioTestCase):
             reporter.events,
         )
 
+    async def test_execute_bridges_legacy_list_runtime_without_label_argument(self):
+        legacy_analysis = type(
+            "LegacyAnalysis",
+            (),
+            {
+                "crawl_config": CrawlPlan(page_type=PageType.LIST, fields=[]),
+                "link_xpath_candidates": [LinkCandidate(xpath="//main//a/@href", confidence=0.8)],
+            },
+        )()
+        analyzer = _LegacyAnalyzerWithoutLabel(legacy_analysis)
+        listing = _LegacyListRunner()
+        use_case = CrawlWebsite(
+            page_source=_LegacyPageSource(),
+            start_page_analyzer=analyzer,
+            listing_crawler=listing,
+            detail_crawler=_LegacyDetailRunner(),
+            reporter=_FakeReporter(),
+        )
+
+        result = await use_case.execute(
+            CrawlRequest(
+                start_url="https://example.com/list",
+                output_path="out.json",
+                max_pages=5,
+                max_list_pages=2,
+            )
+        )
+
+        self.assertEqual(listing.result, result)
+        self.assertEqual(["<html>legacy</html>"], analyzer.calls)
+
     async def test_execute_bridges_legacy_detail_runtime_shapes(self):
         legacy_analysis = type(
             "LegacyAnalysis",
@@ -240,6 +290,28 @@ class TestCrawlWebsite(unittest.IsolatedAsyncioTestCase):
             [{"type": "start_page_analyzed", "page_type": "detail"}],
             reporter.events,
         )
+
+    async def test_execute_surfaces_real_analyzer_type_error_without_retrying(self):
+        analyzer = _LegacyAnalyzerThatRaisesTypeError()
+        use_case = CrawlWebsite(
+            page_source=_LegacyPageSource(),
+            start_page_analyzer=analyzer,
+            listing_crawler=_LegacyListRunner(),
+            detail_crawler=_LegacyDetailRunner(),
+            reporter=_FakeReporter(),
+        )
+
+        with self.assertRaisesRegex(TypeError, "analyzer broke"):
+            await use_case.execute(
+                CrawlRequest(
+                    start_url="https://example.com/list",
+                    output_path="out.json",
+                    max_pages=5,
+                    max_list_pages=2,
+                )
+            )
+
+        self.assertEqual([("<html>legacy</html>", "start page")], analyzer.calls)
 
 
 if __name__ == "__main__":

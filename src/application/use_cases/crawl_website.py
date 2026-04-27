@@ -26,9 +26,9 @@ class CrawlWebsite:
     async def _analyze_start_page(self, page):
         analyze = self.start_page_analyzer.analyze
         if isinstance(page, str):
-            try:
+            if self._supports_label_argument(analyze):
                 result = analyze(page, label="start page")
-            except TypeError:
+            else:
                 result = analyze(page)
         else:
             result = analyze(page)
@@ -90,6 +90,23 @@ class CrawlWebsite:
     @staticmethod
     def _raw_html(page):
         return getattr(page, "html", page)
+
+    @staticmethod
+    def _supports_label_argument(callable_obj):
+        try:
+            signature = inspect.signature(callable_obj)
+        except (TypeError, ValueError):
+            return False
+
+        for parameter in signature.parameters.values():
+            if parameter.kind == inspect.Parameter.VAR_KEYWORD:
+                return True
+            if parameter.name == "label" and parameter.kind in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            ):
+                return True
+        return False
 
     @staticmethod
     async def _resolve(value):
