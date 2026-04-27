@@ -12,17 +12,19 @@ class TestExporter(unittest.TestCase):
     def test_json_output_writer_serializes_non_empty_dataclass_page_records(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             output_path = os.path.join(tmpdir, "out.json")
-            JsonOutputWriter().write(
-                data=[PageData(url="https://example.com/detail/1", data={"title": "Example"})],
-                crawl_config=CrawlConfig(page_type=PageType.DETAIL, fields=[], pagination_xpath=None),
-                source_url="https://example.com/detail/1",
-                output_path=output_path,
-            )
+            with unittest.mock.patch("builtins.print") as print_mock:
+                JsonOutputWriter().write(
+                    data=[PageData(url="https://example.com/detail/1", data={"title": "Example"})],
+                    crawl_config=CrawlConfig(page_type=PageType.DETAIL, fields=[], pagination_xpath=None),
+                    source_url="https://example.com/detail/1",
+                    output_path=output_path,
+                )
 
             with open(output_path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
 
         self.assertEqual(1, payload["total_records"])
+        print_mock.assert_not_called()
         self.assertEqual(
             [{"url": "https://example.com/detail/1", "data": {"title": "Example"}}],
             payload["pages"],

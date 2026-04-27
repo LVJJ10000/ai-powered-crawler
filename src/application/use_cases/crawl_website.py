@@ -2,24 +2,10 @@ import inspect
 
 from application.dto.start_page_analysis import StartPageAnalysis
 from domain.analysis_entities import PageType
-from domain.errors import AnalysisError
+from domain.errors import InvalidStartPageError
 
 
 START_PAGE_ANALYZED = "start_page_analyzed"
-
-
-class InvalidStartPageError(AnalysisError):
-    def __init__(self, reason: str):
-        self.reason = reason
-        super().__init__(reason)
-
-    @classmethod
-    def missing_link_candidates(cls):
-        return cls("missing_link_candidates")
-
-    @classmethod
-    def missing_detail_fields(cls):
-        return cls("missing_detail_fields")
 
 
 class CrawlWebsite:

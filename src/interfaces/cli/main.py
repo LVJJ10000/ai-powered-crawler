@@ -4,8 +4,9 @@ import sys
 from collections.abc import Sequence
 
 import config
-from application.use_cases.crawl_website import InvalidStartPageError
 from domain.crawl_entities import CrawlRequest
+from domain.errors import InvalidStartPageError, MissingApiKeyError
+from interfaces.bootstrap.container import build_client_kwargs as build_shared_client_kwargs
 from interfaces.bootstrap.container import build_container
 
 
@@ -40,13 +41,7 @@ def build_run_config(argv: Sequence[str] | None = None) -> CrawlRequest:
 
 
 def build_client_kwargs() -> dict[str, str]:
-    if not config.API_KEY:
-        raise RuntimeError("OPENAI_API_KEY is not set")
-
-    kwargs = {"api_key": config.API_KEY}
-    if config.BASE_URL:
-        kwargs["base_url"] = config.BASE_URL
-    return kwargs
+    return build_shared_client_kwargs()
 
 
 async def run(argv: Sequence[str] | None = None) -> None:
@@ -63,9 +58,7 @@ async def run(argv: Sequence[str] | None = None) -> None:
             print("\nNo detail fields found. Exiting.")
             sys.exit(1)
         raise
-    except RuntimeError as exc:
-        if str(exc) != "OPENAI_API_KEY is not set":
-            raise
+    except MissingApiKeyError as exc:
         print(f"Error: {exc}")
         sys.exit(1)
 
@@ -73,13 +66,15 @@ async def run(argv: Sequence[str] | None = None) -> None:
     if export_plan is None:
         return
 
+    records = getattr(result, "records", [])
     container.output_writer.write(
-        data=getattr(result, "records", []),
+        data=records,
         crawl_config=export_plan,
         source_url=request.start_url,
         output_path=request.output_path,
         detail_urls=getattr(result, "detail_urls", None) or None,
     )
+    print(f"\nDone!  {len(records)} detail records  ->  {request.output_path}")
 
 
 def main() -> None:

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from app import cli
+from domain.errors import MissingApiKeyError
 from interfaces.cli import main as interfaces_cli_main
 
 
@@ -79,6 +80,15 @@ class TestCliReleaseDefaults(unittest.TestCase):
                 {"api_key": "test-key", "base_url": "https://example.test/v1"},
                 cli.build_client_kwargs(),
             )
+
+    def test_build_client_kwargs_raises_dedicated_error_when_api_key_missing(self):
+        with patch.object(interfaces_cli_main.config, "API_KEY", None), patch.object(
+            interfaces_cli_main.config,
+            "BASE_URL",
+            None,
+        ):
+            with self.assertRaises(MissingApiKeyError):
+                cli.build_client_kwargs()
 
     def test_main_help_does_not_require_api_key(self):
         with patch.object(interfaces_cli_main.config, "API_KEY", None), patch(

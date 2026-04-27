@@ -53,5 +53,4 @@ class JsonOutputWriter:
         with open(output_path, "w", encoding="utf-8") as handle:
             json.dump(output, handle, indent=2, ensure_ascii=False)
 
-        print(f"Exported {len(data)} detail records to {output_path}")
         return output

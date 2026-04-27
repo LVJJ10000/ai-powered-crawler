@@ -7,6 +7,7 @@ from app.factory import ServiceFactory
 from application.dto.crawl_outcomes import CrawlOutcome
 from application.use_cases.crawl_website import CrawlWebsite
 from crawler.fetcher import PageFetcher
+from domain.errors import MissingApiKeyError
 from infrastructure.reporting.console_reporter import ConsoleRunReporter
 from infrastructure.storage.json_output_writer import JsonOutputWriter
 
@@ -84,7 +85,7 @@ class _BootstrappedCrawlWebsite:
         self._reporter = reporter
 
     async def execute(self, request):
-        client = OpenAI(**_build_client_kwargs())
+        client = OpenAI(**build_client_kwargs())
         async with PageFetcher(use_playwright=request.use_playwright) as fetcher:
             page_source = _CachingPageSource(fetcher)
             analyzer_service, list_pipeline, detail_pipeline = ServiceFactory.build(
@@ -101,9 +102,9 @@ class _BootstrappedCrawlWebsite:
             return await crawl_website.execute(request)
 
 
-def _build_client_kwargs() -> dict[str, str]:
+def build_client_kwargs() -> dict[str, str]:
     if not config.API_KEY:
-        raise RuntimeError("OPENAI_API_KEY is not set")
+        raise MissingApiKeyError()
 
     kwargs = {"api_key": config.API_KEY}
     if config.BASE_URL:

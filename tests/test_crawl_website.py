@@ -2,9 +2,9 @@ import unittest
 
 from application.dto.start_page_analysis import StartPageAnalysis
 from application.use_cases.crawl_website import CrawlWebsite
-from domain.analysis_entities import PageType
+from domain.analysis_entities import ExtractType, PageType
 from domain.crawl_entities import CrawlRequest, LinkCandidate
-from domain.extraction_entities import CrawlPlan
+from domain.extraction_entities import CrawlPlan, FieldDefinition
 
 
 class _FuturePageSource:
@@ -147,7 +147,18 @@ class TestCrawlWebsite(unittest.IsolatedAsyncioTestCase):
     async def test_execute_routes_detail_analysis_to_detail_crawler(self):
         analysis = StartPageAnalysis(
             page_type=PageType.DETAIL,
-            crawl_plan=CrawlPlan(page_type=PageType.DETAIL, fields=[]),
+            crawl_plan=CrawlPlan(
+                page_type=PageType.DETAIL,
+                fields=[
+                    FieldDefinition(
+                        name="title",
+                        description="title",
+                        xpath="//h1",
+                        confidence=0.9,
+                        extract=ExtractType.TEXT,
+                    )
+                ],
+            ),
         )
         listing = _FutureListingCrawler()
         detail = _FutureDetailCrawler()
@@ -257,7 +268,18 @@ class TestCrawlWebsite(unittest.IsolatedAsyncioTestCase):
             "LegacyAnalysis",
             (),
             {
-                "crawl_config": CrawlPlan(page_type=PageType.DETAIL, fields=[]),
+                "crawl_config": CrawlPlan(
+                    page_type=PageType.DETAIL,
+                    fields=[
+                        FieldDefinition(
+                            name="title",
+                            description="title",
+                            xpath="//h1",
+                            confidence=0.9,
+                            extract=ExtractType.TEXT,
+                        )
+                    ],
+                ),
                 "link_xpath_candidates": [],
             },
         )()

@@ -2,9 +2,10 @@ import unittest
 
 from app.orchestrator import CrawlOrchestrator
 from application.dto.start_page_analysis import StartPageAnalysis
-from application.use_cases.crawl_website import CrawlWebsite, InvalidStartPageError
+from application.use_cases.crawl_website import CrawlWebsite
 from domain.analysis_entities import ExtractType, PageType
 from domain.crawl_entities import CrawlRequest, LinkCandidate
+from domain.errors import InvalidStartPageError
 from domain.extraction_entities import CrawlPlan, FieldDefinition
 
 
