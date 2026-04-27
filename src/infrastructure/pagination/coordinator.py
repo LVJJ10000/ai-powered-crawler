@@ -14,19 +14,13 @@ class PaginationCoordinator:
         start_url: str,
         pagination_xpath: str | None,
         pagination_type,
-        max_list_pages: int,
+        config: PaginationConfig,
     ) -> list[tuple[str, str]]:
-        conf = PaginationConfig(
-            max_rounds=max(0, max_list_pages - 1),
-            max_no_progress_rounds=2,
-            max_target_pages=max_list_pages,
-        )
-
         if self.fetcher.use_playwright:
             self.last_result = await self.playwright_engine.run(
                 start_url=start_url,
                 pagination_xpath=pagination_xpath,
-                config=conf,
+                config=config,
             )
         else:
             self.last_result = await self.engine.run(
@@ -34,6 +28,6 @@ class PaginationCoordinator:
                 start_url=start_url,
                 pagination_xpath=pagination_xpath,
                 pagination_type=pagination_type,
-                config=conf,
+                config=config,
             )
         return self.last_result.pages

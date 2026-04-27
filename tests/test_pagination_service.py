@@ -1,6 +1,7 @@
 import unittest
 from unittest import mock
 
+import config
 from domain.pagination_models import PaginationConfig, PaginationResult, StopReason
 from infrastructure.pagination import coordinator as coordinator_module
 from infrastructure.pagination.coordinator import PaginationCoordinator
@@ -37,6 +38,7 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
             engine=_FakeEngine(result),
             playwright_engine=_FakeEngine(result),
         )
+        config = PaginationConfig(max_rounds=1, max_no_progress_rounds=3, max_target_pages=2)
 
         with mock.patch("builtins.print") as print_mock:
             pages = await coordinator.follow(
@@ -44,11 +46,12 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
                 start_url="https://example.com/list",
                 pagination_xpath="//a[@rel='next']",
                 pagination_type=None,
-                max_list_pages=2,
+                config=config,
             )
 
         self.assertEqual(result.pages, pages)
         self.assertIs(result, coordinator.last_result)
+        self.assertIs(config, coordinator.engine.calls[0]["config"])
         print_mock.assert_not_called()
         self.assertFalse(hasattr(coordinator_module, "asyncio"))
 
@@ -82,13 +85,17 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
             playwright_engine=playwright_engine,
         )
 
-        await service.follow(
-            start_html="<html>1</html>",
-            start_url="https://example.com/list",
-            pagination_xpath="//a[@rel='next']",
-            pagination_type=None,
-            max_list_pages=1,
-        )
+        with mock.patch("builtins.print") as print_mock, mock.patch(
+            "services.pagination_service.asyncio.sleep",
+            new=mock.AsyncMock(),
+        ) as sleep_mock:
+            await service.follow(
+                start_html="<html>1</html>",
+                start_url="https://example.com/list",
+                pagination_xpath="//a[@rel='next']",
+                pagination_type=None,
+                max_list_pages=1,
+            )
 
         self.assertEqual(0, len(url_engine.calls))
         self.assertEqual(1, len(playwright_engine.calls))
@@ -97,6 +104,48 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
             PaginationConfig(max_rounds=0, max_no_progress_rounds=2, max_target_pages=1),
             playwright_engine.calls[0]["config"],
         )
+        print_mock.assert_called_once_with("    Pagination stop reason: TARGET_REACHED")
+        sleep_mock.assert_not_called()
+
+    async def test_compatibility_service_replacement_engine_updates_coordinator(self):
+        original_result = PaginationResult(
+            pages=[("https://example.com/list?page=1", "<html>1</html>")],
+            stop_reason=StopReason.NO_PROGRESS_LIMIT,
+            traces=[],
+        )
+        replacement_result = PaginationResult(
+            pages=[
+                ("https://example.com/list?page=1", "<html>1</html>"),
+                ("https://example.com/list?page=2", "<html>2</html>"),
+            ],
+            stop_reason=StopReason.TARGET_REACHED,
+            traces=[],
+        )
+        service = PaginationService(
+            fetcher=_FakeFetcher(use_playwright=False),
+            engine=_FakeEngine(original_result),
+            playwright_engine=_FakeEngine(original_result),
+        )
+        replacement_engine = _FakeEngine(replacement_result)
+
+        service.engine = replacement_engine
+
+        with mock.patch("builtins.print"), mock.patch(
+            "services.pagination_service.asyncio.sleep",
+            new=mock.AsyncMock(),
+        ):
+            pages = await service.follow(
+                start_html="<html>page one</html>",
+                start_url="https://example.com/list?page=1",
+                pagination_xpath="//a[@rel='next']/@href",
+                pagination_type=None,
+                max_list_pages=2,
+            )
+
+        self.assertEqual(replacement_result.pages, pages)
+        self.assertEqual(1, len(replacement_engine.calls))
+        self.assertIs(replacement_engine, service.engine)
+        self.assertIs(replacement_engine, service._coordinator.engine)
 
     async def test_follow_uses_playwright_engine_when_fetcher_uses_playwright(self):
         result = PaginationResult(
@@ -115,17 +164,26 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
             playwright_engine=playwright_engine,
         )
 
-        pages = await service.follow(
-            start_html="<html>ignored</html>",
-            start_url="https://example.com/list",
-            pagination_xpath="//a[@rel='next']",
-            pagination_type=None,
-            max_list_pages=2,
-        )
+        with mock.patch("builtins.print") as print_mock, mock.patch(
+            "services.pagination_service.asyncio.sleep",
+            new=mock.AsyncMock(),
+        ) as sleep_mock:
+            pages = await service.follow(
+                start_html="<html>ignored</html>",
+                start_url="https://example.com/list",
+                pagination_xpath="//a[@rel='next']",
+                pagination_type=None,
+                max_list_pages=2,
+            )
 
         self.assertEqual(0, len(url_engine.calls))
         self.assertEqual(1, len(playwright_engine.calls))
         self.assertEqual(2, len(pages))
+        self.assertEqual(
+            [mock.call("    Paginated: https://example.com/list"), mock.call("    Pagination stop reason: TARGET_REACHED")],
+            print_mock.call_args_list,
+        )
+        sleep_mock.assert_awaited_once_with(config.REQUEST_DELAY)
 
     async def test_follow_uses_url_engine_when_playwright_is_disabled(self):
         result = PaginationResult(
@@ -144,16 +202,28 @@ class TestPaginationService(unittest.IsolatedAsyncioTestCase):
             playwright_engine=playwright_engine,
         )
 
-        await service.follow(
-            start_html="<html>page one</html>",
-            start_url="https://example.com/list?page=1",
-            pagination_xpath="//a[@rel='next']/@href",
-            pagination_type=None,
-            max_list_pages=2,
-        )
+        with mock.patch("builtins.print") as print_mock, mock.patch(
+            "services.pagination_service.asyncio.sleep",
+            new=mock.AsyncMock(),
+        ) as sleep_mock:
+            await service.follow(
+                start_html="<html>page one</html>",
+                start_url="https://example.com/list?page=1",
+                pagination_xpath="//a[@rel='next']/@href",
+                pagination_type=None,
+                max_list_pages=2,
+            )
 
         self.assertEqual(1, len(url_engine.calls))
         self.assertEqual(0, len(playwright_engine.calls))
+        self.assertEqual(
+            [
+                mock.call("    Paginated: https://example.com/list?page=2"),
+                mock.call("    Pagination stop reason: TARGET_REACHED"),
+            ],
+            print_mock.call_args_list,
+        )
+        sleep_mock.assert_awaited_once_with(config.REQUEST_DELAY)
 
 
 if __name__ == "__main__":

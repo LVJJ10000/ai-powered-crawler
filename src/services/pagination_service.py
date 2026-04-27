@@ -1,7 +1,7 @@
 import asyncio
 
 import config
-from domain.pagination_models import PaginationResult
+from domain.pagination_models import PaginationConfig, PaginationResult
 from infrastructure.pagination.coordinator import PaginationCoordinator
 from infrastructure.pagination.progress_detector import ProgressDetector
 from services.pagination_engine import PaginationEngine
@@ -20,9 +20,6 @@ class PaginationService:
             engine=engine,
             playwright_engine=playwright_engine,
         )
-        self.fetcher = self._coordinator.fetcher
-        self.engine = self._coordinator.engine
-        self.playwright_engine = self._coordinator.playwright_engine
 
     async def follow(
         self,
@@ -32,18 +29,47 @@ class PaginationService:
         pagination_type,
         max_list_pages: int,
     ) -> list[tuple[str, str]]:
+        pagination_config = PaginationConfig(
+            max_rounds=max(0, max_list_pages - 1),
+            max_no_progress_rounds=2,
+            max_target_pages=max_list_pages,
+        )
         pages = await self._coordinator.follow(
             start_html=start_html,
             start_url=start_url,
             pagination_xpath=pagination_xpath,
             pagination_type=pagination_type,
-            max_list_pages=max_list_pages,
+            config=pagination_config,
         )
         for page_url, _ in self.last_result.pages[1:]:
             print(f"    Paginated: {page_url}")
             await asyncio.sleep(config.REQUEST_DELAY)
         print(f"    Pagination stop reason: {self.last_result.stop_reason.value}")
         return pages
+
+    @property
+    def fetcher(self):
+        return self._coordinator.fetcher
+
+    @fetcher.setter
+    def fetcher(self, value):
+        self._coordinator.fetcher = value
+
+    @property
+    def engine(self):
+        return self._coordinator.engine
+
+    @engine.setter
+    def engine(self, value):
+        self._coordinator.engine = value
+
+    @property
+    def playwright_engine(self):
+        return self._coordinator.playwright_engine
+
+    @playwright_engine.setter
+    def playwright_engine(self, value):
+        self._coordinator.playwright_engine = value
 
     @property
     def last_result(self) -> PaginationResult | None:
