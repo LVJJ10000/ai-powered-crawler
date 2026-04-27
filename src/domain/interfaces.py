@@ -67,6 +67,20 @@ class IListPipeline(Protocol):
         ...
 
 
+class IPlaywrightPaginationSession(Protocol):
+    async def capture_snapshot(self) -> tuple[str, str]:
+        ...
+
+    async def click_if_possible(self, xpath: str) -> bool:
+        ...
+
+    async def scroll_viewport(self) -> None:
+        ...
+
+    async def close(self) -> None:
+        ...
+
+
 class IDetailPipeline(Protocol):
     async def run(
         self,

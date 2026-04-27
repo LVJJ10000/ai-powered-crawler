@@ -6,6 +6,7 @@ import asyncio
 import logging
 import httpx
 import config
+from crawler.playwright_session import PlaywrightPaginationSession
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,13 @@ class PageFetcher:
             return await self._fetch_playwright(url)
         else:
             return await self._fetch_httpx(url)
+
+    async def _ensure_browser(self):
+        if self._browser is None:
+            from playwright.async_api import async_playwright
+
+            self._playwright = await async_playwright().start()
+            self._browser = await self._playwright.chromium.launch(headless=False)
 
     async def _fetch_httpx(self, url: str) -> str:
         """Fetch using httpx."""
@@ -51,10 +59,7 @@ class PageFetcher:
 
     async def _fetch_playwright(self, url: str) -> str:
         """Fetch using Playwright."""
-        if self._browser is None:
-            from playwright.async_api import async_playwright
-            self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.launch(headless=False)
+        await self._ensure_browser()
 
         page = await self._browser.new_page()
         try:
@@ -73,6 +78,19 @@ class PageFetcher:
             return content
         finally:
             await page.close()
+
+    async def open_pagination_session(self, url: str) -> PlaywrightPaginationSession:
+        if not self.use_playwright:
+            raise RuntimeError("Pagination sessions require Playwright")
+
+        await self._ensure_browser()
+        page = await self._browser.new_page()
+        await page.goto(url, wait_until="domcontentloaded", timeout=config.REQUEST_TIMEOUT * 1000)
+        try:
+            await page.wait_for_load_state("networkidle", timeout=10000)
+        except Exception:
+            pass
+        return PlaywrightPaginationSession(page)
 
     async def fetch_many(self, urls: list[str]) -> list[tuple[str, str]]:
         """Fetch multiple pages sequentially."""
