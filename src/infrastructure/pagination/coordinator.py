@@ -1,23 +1,11 @@
-import asyncio
-import logging
-
-import config
 from domain.pagination_models import PaginationConfig, PaginationResult
-from infrastructure.pagination.progress_detector import ProgressDetector
-from services.pagination_engine import PaginationEngine
-from services.playwright_pagination_engine import PlaywrightPaginationEngine
-
-logger = logging.getLogger(__name__)
 
 
 class PaginationCoordinator:
-    def __init__(self, fetcher, engine=None, playwright_engine=None):
+    def __init__(self, fetcher, engine, playwright_engine):
         self.fetcher = fetcher
-        self.engine = engine or PaginationEngine(fetcher=fetcher, progress_detector=ProgressDetector())
-        self.playwright_engine = playwright_engine or PlaywrightPaginationEngine(
-            session_factory=fetcher.open_pagination_session,
-            progress_detector=ProgressDetector(),
-        )
+        self.engine = engine
+        self.playwright_engine = playwright_engine
         self.last_result: PaginationResult | None = None
 
     async def follow(
@@ -48,9 +36,4 @@ class PaginationCoordinator:
                 pagination_type=pagination_type,
                 config=conf,
             )
-
-        for page_url, _ in self.last_result.pages[1:]:
-            print(f"    Paginated: {page_url}")
-            await asyncio.sleep(config.REQUEST_DELAY)
-        print(f"    Pagination stop reason: {self.last_result.stop_reason.value}")
         return self.last_result.pages
