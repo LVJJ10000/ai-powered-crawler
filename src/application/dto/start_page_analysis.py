@@ -10,3 +10,10 @@ class StartPageAnalysis:
     page_type: PageType
     crawl_plan: CrawlPlan
     link_candidates: list[LinkCandidate] = field(default_factory=list)
+
+    def __post_init__(self):
+        if self.page_type != self.crawl_plan.page_type:
+            raise ValueError(
+                "page_type must match crawl_plan.page_type: "
+                f"{self.page_type.value!r} != {self.crawl_plan.page_type.value!r}"
+            )

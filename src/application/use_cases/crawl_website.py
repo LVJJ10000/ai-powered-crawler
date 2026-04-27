@@ -1,4 +1,10 @@
+import inspect
+
+from application.dto.start_page_analysis import StartPageAnalysis
 from domain.analysis_entities import PageType
+
+
+START_PAGE_ANALYZED = "start_page_analyzed"
 
 
 class CrawlWebsite:
@@ -10,9 +16,83 @@ class CrawlWebsite:
         self.reporter = reporter
 
     async def execute(self, request):
-        snapshot = await self.page_source.fetch(request.start_url)
-        analysis = await self.start_page_analyzer.analyze(snapshot)
-        self.reporter.publish({"type": "start_page_analyzed", "page_type": analysis.page_type.value})
+        page = await self.page_source.fetch(request.start_url)
+        analysis = await self._analyze_start_page(page)
+        self._publish_start_page_analyzed(analysis)
         if analysis.page_type == PageType.LIST:
-            return await self.listing_crawler.crawl(request, analysis)
-        return await self.detail_crawler.crawl(request, analysis)
+            return await self._route_listing(request, page, analysis)
+        return await self._route_detail(request, page, analysis)
+
+    async def _analyze_start_page(self, page):
+        analyze = self.start_page_analyzer.analyze
+        if isinstance(page, str):
+            try:
+                result = analyze(page, label="start page")
+            except TypeError:
+                result = analyze(page)
+        else:
+            result = analyze(page)
+        analysis = await self._resolve(result)
+        return self._normalize_analysis(analysis)
+
+    def _normalize_analysis(self, analysis):
+        if isinstance(analysis, StartPageAnalysis):
+            return analysis
+
+        crawl_plan = getattr(analysis, "crawl_plan", None) or getattr(analysis, "crawl_config", None)
+        if crawl_plan is None:
+            raise TypeError("Start page analysis must provide crawl_plan or crawl_config")
+
+        page_type = getattr(analysis, "page_type", None) or crawl_plan.page_type
+        link_candidates = getattr(analysis, "link_candidates", None)
+        if link_candidates is None:
+            link_candidates = getattr(analysis, "link_xpath_candidates", [])
+
+        return StartPageAnalysis(
+            page_type=page_type,
+            crawl_plan=crawl_plan,
+            link_candidates=list(link_candidates),
+        )
+
+    async def _route_listing(self, request, page, analysis):
+        if hasattr(self.listing_crawler, "crawl"):
+            return await self._resolve(self.listing_crawler.crawl(request, analysis))
+        return await self._resolve(
+            self.listing_crawler.run(
+                run_config=request,
+                start_url=request.start_url,
+                raw_html=self._raw_html(page),
+                list_config=analysis.crawl_plan,
+                link_candidates=analysis.link_candidates,
+            )
+        )
+
+    async def _route_detail(self, request, page, analysis):
+        if hasattr(self.detail_crawler, "crawl"):
+            return await self._resolve(self.detail_crawler.crawl(request, analysis))
+        return await self._resolve(
+            self.detail_crawler.run(
+                run_config=request,
+                start_url=request.start_url,
+                raw_html=self._raw_html(page),
+                detail_config=analysis.crawl_plan,
+            )
+        )
+
+    def _publish_start_page_analyzed(self, analysis):
+        self.reporter.publish(
+            {
+                "type": START_PAGE_ANALYZED,
+                "page_type": analysis.page_type.value,
+            }
+        )
+
+    @staticmethod
+    def _raw_html(page):
+        return getattr(page, "html", page)
+
+    @staticmethod
+    async def _resolve(value):
+        if inspect.isawaitable(value):
+            return await value
+        return value
