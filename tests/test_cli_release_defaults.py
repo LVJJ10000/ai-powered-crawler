@@ -2,9 +2,37 @@ import unittest
 from unittest.mock import patch
 
 from app import cli
+from domain.errors import MissingApiKeyError
+from interfaces.cli import main as interfaces_cli_main
 
 
 class TestCliReleaseDefaults(unittest.TestCase):
+    def test_build_run_config_defaults_depth_to_two(self):
+        run_config = cli.build_run_config(["https://example.com/list"])
+        self.assertEqual(2, run_config.depth)
+
+    def test_build_run_config_accepts_explicit_depth(self):
+        run_config = cli.build_run_config(
+            [
+                "https://example.com/list",
+                "--depth",
+                "3",
+            ]
+        )
+        self.assertEqual(3, run_config.depth)
+
+    def test_parse_args_rejects_depth_below_one(self):
+        with self.assertRaises(SystemExit) as context:
+            cli.parse_args(
+                [
+                    "https://example.com/list",
+                    "--depth",
+                    "0",
+                ]
+            )
+
+        self.assertEqual(2, context.exception.code)
+
     def test_build_run_config_requires_explicit_url_and_uses_safe_defaults(self):
         run_config = cli.build_run_config(
             [
@@ -35,20 +63,38 @@ class TestCliReleaseDefaults(unittest.TestCase):
         self.assertTrue(run_config.use_playwright)
 
     def test_build_client_kwargs_omits_base_url_when_unset(self):
-        with patch.object(cli.config, "API_KEY", "test-key"), patch.object(cli.config, "BASE_URL", None):
+        with patch.object(interfaces_cli_main.config, "API_KEY", "test-key"), patch.object(
+            interfaces_cli_main.config,
+            "BASE_URL",
+            None,
+        ):
             self.assertEqual({"api_key": "test-key"}, cli.build_client_kwargs())
 
     def test_build_client_kwargs_includes_custom_base_url_when_set(self):
-        with patch.object(cli.config, "API_KEY", "test-key"), patch.object(
-            cli.config, "BASE_URL", "https://example.test/v1"
+        with patch.object(interfaces_cli_main.config, "API_KEY", "test-key"), patch.object(
+            interfaces_cli_main.config,
+            "BASE_URL",
+            "https://example.test/v1",
         ):
             self.assertEqual(
                 {"api_key": "test-key", "base_url": "https://example.test/v1"},
                 cli.build_client_kwargs(),
             )
 
+    def test_build_client_kwargs_raises_dedicated_error_when_api_key_missing(self):
+        with patch.object(interfaces_cli_main.config, "API_KEY", None), patch.object(
+            interfaces_cli_main.config,
+            "BASE_URL",
+            None,
+        ):
+            with self.assertRaises(MissingApiKeyError):
+                cli.build_client_kwargs()
+
     def test_main_help_does_not_require_api_key(self):
-        with patch.object(cli.config, "API_KEY", None), patch("sys.argv", ["ai-powered-crawler", "-h"]):
+        with patch.object(interfaces_cli_main.config, "API_KEY", None), patch(
+            "sys.argv",
+            ["ai-powered-crawler", "-h"],
+        ):
             with self.assertRaises(SystemExit) as context:
                 cli.main()
 

@@ -1,0 +1,42 @@
+from dataclasses import dataclass, field
+
+
+@dataclass
+class CrawlRequest:
+    start_url: str
+    output_path: str = "output.json"
+    max_pages: int = 100
+    max_list_pages: int = 10
+    use_playwright: bool = False
+    depth: int = 2
+
+
+@dataclass
+class LinkCandidate:
+    xpath: str
+    confidence: float = 0.5
+    reason: str = ""
+
+
+@dataclass
+class LinkCandidateEvaluation:
+    candidate: LinkCandidate
+    urls: list[str] = field(default_factory=list)
+    basic_valid_ratio: float = 0.0
+    pattern_coverage: float = 0.0
+    top_pattern_support: float = 0.0
+    score: float = 0.0
+
+
+@dataclass
+class PatternModel:
+    segment_schema: list[str] = field(default_factory=list)
+    pattern_counts: dict[str, int] = field(default_factory=dict)
+    total_urls: int = 0
+
+
+@dataclass
+class LinkSelection:
+    selected_urls: list[str] = field(default_factory=list)
+    selected_xpaths: list[str] = field(default_factory=list)
+    evaluations: list[LinkCandidateEvaluation] = field(default_factory=list)

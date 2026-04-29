@@ -1,122 +1,185 @@
 import unittest
-from unittest.mock import patch
 
 from app.orchestrator import CrawlOrchestrator
-from domain.models import RunConfig, XPathCandidate
-from models.schemas import CrawlConfig, FieldXPath, PageType, ExtractType
+from application.dto.start_page_analysis import StartPageAnalysis
+from application.use_cases.crawl_website import CrawlWebsite
+from domain.analysis_entities import ExtractType, PageType
+from domain.crawl_entities import CrawlRequest, LinkCandidate
+from domain.errors import MissingDetailFieldsError, MissingLinkCandidatesError
+from domain.extraction_entities import CrawlPlan, FieldDefinition
 
 
-class _FakeFetcher:
-    def __init__(self, html: str):
-        self._html = html
+class _FakePageSource:
+    def __init__(self, html):
+        self.html = html
 
-    async def fetch(self, url: str) -> str:
-        return self._html
-
-
-class _FakeAnalysisResult:
-    def __init__(self, crawl_config: CrawlConfig, link_candidates=None):
-        self.crawl_config = crawl_config
-        self.link_xpath_candidates = link_candidates or []
+    async def fetch(self, url):
+        return self.html
 
 
-class _FakeAnalyzerService:
-    def __init__(self, start_result, detail_result=None):
-        self._start_result = start_result
-        self._detail_result = detail_result or start_result
-        self.calls = 0
-        self.client = object()
+class _FakeAnalyzer:
+    def __init__(self, analysis):
+        self.analysis = analysis
 
-    def analyze(self, raw_html: str, label: str = "page"):
-        self.calls += 1
-        if self.calls == 1:
-            return self._start_result
-        return self._detail_result
+    def analyze(self, raw_html, label="page"):
+        return self.analysis
 
 
-class _FakeListPipeline:
+class _FakeCrawler:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    async def crawl(self, request, analysis):
+        self.calls.append((request, analysis))
+        return self.result
+
+
+class _FakeReporter:
     def __init__(self):
-        self.called = False
+        self.events = []
 
-    async def run(self, **kwargs):
-        self.called = True
-        return [], kwargs["list_config"]
-
-
-class _FakeDetailPipeline:
-    def __init__(self):
-        self.called = False
-
-    async def run(self, **kwargs):
-        self.called = True
-        return [], kwargs["detail_config"]
+    def publish(self, event):
+        self.events.append(event)
 
 
 class TestOrchestratorRouting(unittest.IsolatedAsyncioTestCase):
-    async def test_routes_to_list_pipeline(self):
-        list_config = CrawlConfig(page_type=PageType.LIST, fields=[], pagination_xpath=None)
-        start_result = _FakeAnalysisResult(
-            crawl_config=list_config,
-            link_candidates=[XPathCandidate(xpath="//main//a/@href", confidence=0.8)],
+    async def test_routes_list_analysis_to_listing_crawler(self):
+        analysis = StartPageAnalysis(
+            page_type=PageType.LIST,
+            crawl_plan=CrawlPlan(page_type=PageType.LIST, fields=[]),
+            link_candidates=[LinkCandidate(xpath="//main//a/@href", confidence=0.8)],
         )
-        analyzer = _FakeAnalyzerService(start_result)
-        list_pipeline = _FakeListPipeline()
-        detail_pipeline = _FakeDetailPipeline()
-        fetcher = _FakeFetcher("<html></html>")
+        listing = _FakeCrawler("list-result")
+        detail = _FakeCrawler("detail-result")
+        reporter = _FakeReporter()
+        crawl_website = CrawlWebsite(
+            page_source=_FakePageSource("<html></html>"),
+            start_page_analyzer=_FakeAnalyzer(analysis),
+            listing_crawler=listing,
+            detail_crawler=detail,
+            reporter=reporter,
+        )
+        orchestrator = CrawlOrchestrator(crawl_website)
 
-        orchestrator = CrawlOrchestrator(fetcher, analyzer, list_pipeline, detail_pipeline)
-        run_config = RunConfig(
-            start_url="https://example.com/list",
-            output_path="tmp.json",
-            max_pages=5,
-            max_list_pages=2,
-            use_playwright=False,
+        result = await orchestrator.run(
+            CrawlRequest(
+                start_url="https://example.com/list",
+                output_path="tmp.json",
+                max_pages=5,
+                max_list_pages=2,
+            )
         )
 
-        with patch("app.orchestrator.export_json") as export_mock:
-            await orchestrator.run(run_config)
-            export_mock.assert_called_once()
+        self.assertEqual("list-result", result)
+        self.assertEqual(1, len(listing.calls))
+        self.assertEqual([], detail.calls)
+        self.assertEqual([{"type": "start_page_analyzed", "page_type": "list"}], reporter.events)
 
-        self.assertTrue(list_pipeline.called)
-        self.assertFalse(detail_pipeline.called)
-
-    async def test_routes_to_detail_pipeline(self):
-        detail_config = CrawlConfig(
+    async def test_routes_detail_analysis_to_detail_crawler(self):
+        analysis = StartPageAnalysis(
             page_type=PageType.DETAIL,
-            fields=[
-                FieldXPath(
-                    name="title",
-                    description="title",
-                    xpath="//h1",
-                    confidence=0.9,
-                    extract=ExtractType.TEXT,
+            crawl_plan=CrawlPlan(
+                page_type=PageType.DETAIL,
+                fields=[
+                    FieldDefinition(
+                        name="title",
+                        description="title",
+                        xpath="//h1",
+                        confidence=0.9,
+                        extract=ExtractType.TEXT,
+                    )
+                ],
+            ),
+        )
+        listing = _FakeCrawler("list-result")
+        detail = _FakeCrawler("detail-result")
+        reporter = _FakeReporter()
+        crawl_website = CrawlWebsite(
+            page_source=_FakePageSource("<html></html>"),
+            start_page_analyzer=_FakeAnalyzer(analysis),
+            listing_crawler=listing,
+            detail_crawler=detail,
+            reporter=reporter,
+        )
+        orchestrator = CrawlOrchestrator(crawl_website)
+
+        result = await orchestrator.run(
+            CrawlRequest(
+                start_url="https://example.com/detail/1",
+                output_path="tmp.json",
+                max_pages=5,
+                max_list_pages=2,
+            )
+        )
+
+        self.assertEqual("detail-result", result)
+        self.assertEqual([], listing.calls)
+        self.assertEqual(1, len(detail.calls))
+        self.assertEqual([{"type": "start_page_analyzed", "page_type": "detail"}], reporter.events)
+
+    async def test_rejects_list_start_page_without_link_candidates_before_routing(self):
+        analysis = StartPageAnalysis(
+            page_type=PageType.LIST,
+            crawl_plan=CrawlPlan(page_type=PageType.LIST, fields=[]),
+        )
+        listing = _FakeCrawler("list-result")
+        detail = _FakeCrawler("detail-result")
+        reporter = _FakeReporter()
+        crawl_website = CrawlWebsite(
+            page_source=_FakePageSource("<html></html>"),
+            start_page_analyzer=_FakeAnalyzer(analysis),
+            listing_crawler=listing,
+            detail_crawler=detail,
+            reporter=reporter,
+        )
+        orchestrator = CrawlOrchestrator(crawl_website)
+
+        with self.assertRaises(MissingLinkCandidatesError):
+            await orchestrator.run(
+                CrawlRequest(
+                    start_url="https://example.com/list",
+                    output_path="tmp.json",
+                    max_pages=5,
+                    max_list_pages=2,
                 )
-            ],
-            pagination_xpath=None,
+            )
+
+        self.assertEqual([], listing.calls)
+        self.assertEqual([], detail.calls)
+        self.assertEqual([], reporter.events)
+
+    async def test_rejects_detail_start_page_without_fields_before_routing(self):
+        analysis = StartPageAnalysis(
+            page_type=PageType.DETAIL,
+            crawl_plan=CrawlPlan(page_type=PageType.DETAIL, fields=[]),
         )
-        start_result = _FakeAnalysisResult(crawl_config=detail_config, link_candidates=[])
-        analyzer = _FakeAnalyzerService(start_result)
-        list_pipeline = _FakeListPipeline()
-        detail_pipeline = _FakeDetailPipeline()
-        fetcher = _FakeFetcher("<html></html>")
-
-        orchestrator = CrawlOrchestrator(fetcher, analyzer, list_pipeline, detail_pipeline)
-        run_config = RunConfig(
-            start_url="https://example.com/detail/1",
-            output_path="tmp.json",
-            max_pages=5,
-            max_list_pages=2,
-            use_playwright=False,
+        listing = _FakeCrawler("list-result")
+        detail = _FakeCrawler("detail-result")
+        reporter = _FakeReporter()
+        crawl_website = CrawlWebsite(
+            page_source=_FakePageSource("<html></html>"),
+            start_page_analyzer=_FakeAnalyzer(analysis),
+            listing_crawler=listing,
+            detail_crawler=detail,
+            reporter=reporter,
         )
+        orchestrator = CrawlOrchestrator(crawl_website)
 
-        with patch("app.orchestrator.export_json") as export_mock:
-            await orchestrator.run(run_config)
-            export_mock.assert_called_once()
+        with self.assertRaises(MissingDetailFieldsError):
+            await orchestrator.run(
+                CrawlRequest(
+                    start_url="https://example.com/detail/1",
+                    output_path="tmp.json",
+                    max_pages=5,
+                    max_list_pages=2,
+                )
+            )
 
-        self.assertFalse(list_pipeline.called)
-        self.assertTrue(detail_pipeline.called)
+        self.assertEqual([], listing.calls)
+        self.assertEqual([], detail.calls)
+        self.assertEqual([], reporter.events)
 
 
 if __name__ == "__main__":
     unittest.main()
-
