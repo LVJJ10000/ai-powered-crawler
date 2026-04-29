@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 @dataclass
 class CrawlRequest:
     start_url: str
-    output_path: str
-    max_pages: int
-    max_list_pages: int
+    output_path: str = "output.json"
+    max_pages: int = 100
+    max_list_pages: int = 10
     use_playwright: bool = False
     depth: int = 2
 
